@@ -42,14 +42,60 @@ class JobViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Set posted_by to the logged-in user (if any)
         serializer.save(posted_by=self.request.user)
-
     def get_queryset(self):
+        user = self.request.user
         # If user is a recruiter, only show their jobs
-        if self.request.user.role == 'recruiter':
-            return Job.objects.filter(posted_by=self.request.user)
-        # Otherwise show all jobs
+        if user and user.is_authenticated and user.role == 'recruiter':
+            return Job.objects.filter(posted_by=user)
         return Job.objects.all()
-
+        
+    def get_object(self):
+        """Override to handle both ObjectId strings and integer IDs"""
+        # Get the lookup value from the URL
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        lookup_value = self.kwargs.get(lookup_url_kwarg)
+        
+        # Try to handle different types of lookup values
+        from bson import ObjectId
+        try:
+            # If it's an integer or string representation of an integer
+            if lookup_value and lookup_value.isdigit():
+                # First try to get all jobs and find by position
+                queryset = self.filter_queryset(self.get_queryset())
+                try:
+                    # Convert to 0-based index and try to get the job at that position
+                    index = int(lookup_value) - 1
+                    if index >= 0 and index < queryset.count():
+                        obj = queryset[index]
+                        self.check_object_permissions(self.request, obj)
+                        return obj
+                except (ValueError, IndexError):
+                    pass
+                
+                # If position-based lookup fails, try to find a job with an ObjectId that matches the string representation
+                # This is useful for DELETE operations where we need to find the exact job
+                try:
+                    # Try to find a job where the string representation of its ObjectId ends with the lookup_value
+                    # This is a workaround since we can't directly query by integer ID in MongoDB
+                    for job in queryset:
+                        if str(job.pk).endswith(lookup_value):
+                            self.check_object_permissions(self.request, job)
+                            return job
+                except Exception:
+                    pass
+                
+                # If we still couldn't find the job, fall through to the standard method
+                return super().get_object()
+            
+            # If it's not a digit, try to convert to ObjectId directly
+            obj_id = ObjectId(lookup_value)
+            queryset = self.filter_queryset(self.get_queryset())
+            obj = queryset.get(pk=obj_id)
+            self.check_object_permissions(self.request, obj)
+            return obj
+        except (TypeError, ValueError, Job.DoesNotExist):
+            # If conversion fails or object doesn't exist, use the standard method
+            return super().get_object()
 class ApplicationCreateView(APIView):
     permission_classes = [IsAuthenticated, IsCandidate]
 

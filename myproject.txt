@@ -1,0 +1,749 @@
+# Job Portal Project Code
+
+## Frontend Components
+
+### App.js
+```javascript
+// src/App.js
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import NavBar from './components/NavBar';
+import Login from './components/Login';
+import Register from './components/Register';
+import JobListings from './components/JobListings';
+import Dashboard from './components/Dashboard';
+import CandidateDashboard from './components/CandidateDashboard';
+import ApplyJob from './components/ApplyJob';
+import PostJob from './components/PostJob';
+import EditJob from './components/EditJob';
+
+function App() {
+  return (
+    <Router>
+      <NavBar />
+      <Routes>
+        <Route path="/" element={<JobListings />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/my-applications" element={<CandidateDashboard />} />
+        <Route path="/apply/:jobId" element={<ApplyJob />} />
+        <Route path="/post-job" element={<PostJob />} />
+        <Route path="/jobs/edit/:jobId" element={<EditJob />} />
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;
+```
+----
+
+### NavBar.js
+```javascript
+// src/components/NavBar.js
+import React from 'react';
+import { AppBar, Toolbar, Typography, Button, Box, Container, Avatar } from '@mui/material';
+import { Link, useNavigate } from 'react-router-dom';
+import WorkIcon from '@mui/icons-material/Work';
+
+function NavBar() {
+  const navigate = useNavigate();
+  const token = localStorage.getItem('accessToken');
+  const userRole = localStorage.getItem('userRole'); // Ensure this is set upon login
+
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('userRole');
+    navigate('/login');
+  };
+
+  return (
+    <AppBar position="static" elevation={4} sx={{ backgroundColor: 'primary.main' }}>
+      <Container maxWidth="lg">
+        <Toolbar sx={{ py: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+            <Avatar sx={{ bgcolor: 'secondary.main', mr: 1 }}>
+              <WorkIcon />
+            </Avatar>
+            <Typography 
+              variant="h5" 
+              component={Link} 
+              to="/" 
+              sx={{ 
+                flexGrow: 1, 
+                fontWeight: 'bold',
+                textDecoration: 'none',
+                color: 'white',
+                '&:hover': { opacity: 0.9 }
+              }}
+            >
+              Job Portal
+            </Typography>
+          </Box>
+          
+          <Box sx={{ flexGrow: 1 }} />
+          
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+            <Button 
+              color="inherit" 
+              component={Link} 
+              to="/" 
+              sx={{ 
+                fontWeight: 'medium',
+                borderRadius: 2,
+                '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+              }}
+            >
+              Jobs
+            </Button>
+            
+            {token ? (
+              <>
+                {userRole === 'recruiter' && (
+                  <>
+                    <Button 
+                      color="inherit" 
+                      component={Link} 
+                      to="/post-job"
+                      sx={{ 
+                        fontWeight: 'medium',
+                        borderRadius: 2,
+                        '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                      }}
+                    >
+                      Post Job
+                    </Button>
+                    <Button 
+                      color="inherit" 
+                      component={Link} 
+                      to="/dashboard"
+                      sx={{ 
+                        fontWeight: 'medium',
+                        borderRadius: 2,
+                        '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                      }}
+                    >
+                      Dashboard
+                    </Button>
+                  </>
+                )}
+                {userRole === 'candidate' && (
+                  <Button 
+                    color="inherit" 
+                    component={Link} 
+                    to="/my-applications"
+                    sx={{ 
+                      fontWeight: 'medium',
+                      borderRadius: 2,
+                      '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                    }}
+                  >
+                    My Applications
+                  </Button>
+                )}
+                <Button 
+                  variant="outlined" 
+                  color="inherit" 
+                  onClick={handleLogout}
+                  sx={{ 
+                    borderColor: 'white', 
+                    '&:hover': { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderColor: 'white'
+                    }
+                  }}
+                >
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  color="inherit" 
+                  component={Link} 
+                  to="/login"
+                  sx={{ 
+                    fontWeight: 'medium',
+                    borderRadius: 2,
+                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                  }}
+                >
+                  Login
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  color="inherit" 
+                  component={Link} 
+                  to="/register"
+                  sx={{ 
+                    borderColor: 'white', 
+                    '&:hover': { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderColor: 'white'
+                    }
+                  }}
+                >
+                  Register
+                </Button>
+              </>
+            )}
+          </Box>
+        </Toolbar>
+      </Container>
+    </AppBar>
+  );
+}
+
+export default NavBar;
+```
+----
+
+### JobListings.js
+```javascript
+// src/components/JobListings.js
+import React, { useEffect, useState } from 'react';
+import {
+  Container,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  Button,
+  Box,
+  Chip,
+  Divider,
+  Paper,
+  CircularProgress,
+  Alert,
+} from '@mui/material';
+import axios from 'axios';
+import { Link } from 'react-router-dom';
+import WorkIcon from '@mui/icons-material/Work';
+import BusinessIcon from '@mui/icons-material/Business';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+
+function JobListings() {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const userRole = localStorage.getItem('userRole'); // "candidate" or "recruiter"
+
+  const fetchJobs = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.get('/api/jobs/', {
+        headers: { Authorization: token ? `Bearer ${token}` : '' },
+      });
+      setJobs(response.data);
+    } catch (err) {
+      console.error('Error fetching jobs', err);
+      setError('Failed to load jobs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const handleDelete = async (jobId) => {
+    if (!window.confirm('Are you sure you want to delete this job posting?')) return;
+    try {
+      const token = localStorage.getItem('accessToken');
+      await axios.delete(`/api/jobs/${jobId}/`, {
+        headers: { Authorization: token ? `Bearer ${token}` : '' },
+      });
+      // Refresh the job list after deletion
+      fetchJobs();
+    } catch (err) {
+      console.error('Error deleting job', err);
+      alert('Failed to delete the job posting.');
+    }
+  };
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 5, mb: 8 }}>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 3, backgroundColor: 'primary.main', color: 'white' }}>
+        <Typography variant="h4" fontWeight="bold" gutterBottom>
+          Discover Your Next Career Opportunity
+        </Typography>
+        <Typography variant="subtitle1">
+          Browse through our curated list of job openings from top employers.
+        </Typography>
+      </Paper>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Alert severity="error">{error}</Alert>
+      ) : jobs.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
+          <Typography variant="h6" color="text.secondary">
+            No jobs available at the moment.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Please check back later for new opportunities.
+          </Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={3}>
+          {jobs.map((job) => (
+            <Grid item xs={12} sm={6} md={4} key={job.id}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <CardContent sx={{ pb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <WorkIcon color="primary" sx={{ mr: 1 }} />
+                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                      {job.title}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <BusinessIcon fontSize="small" color="action" sx={{ mr: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {job.company || 'Company Name'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <LocationOnIcon fontSize="small" color="action" sx={{ mr: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {job.location || 'Remote'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Chip
+                      label={job.status === 'close' ? 'Closed' : 'Open'}
+                      color={job.status === 'close' ? 'error' : 'success'}
+                      size="small"
+                      variant="outlined"
+                      sx={{ borderRadius: 1 }}
+                    />
+                  </Box>
+
+                  <Divider sx={{ my: 1.5 }} />
+                  <Typography variant="body2" color="text.primary" sx={{ mb: 2, minHeight: '60px' }}>
+                    {job.description.length > 120 ? `${job.description.substring(0, 120)}...` : job.description}
+                  </Typography>
+                </CardContent>
+                <CardActions sx={{ p: 2, pt: 0 }}>
+                  {userRole === 'candidate' ? (
+                    job.status === 'close' ? (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        fullWidth
+                        disabled
+                        sx={{ borderRadius: 2, opacity: 0.7 }}
+                      >
+                        Position Closed
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        fullWidth
+                        component={Link}
+                        to={`/apply/${job.id}`}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        Apply Now
+                      </Button>
+                    )
+                  ) : (
+                    <>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        fullWidth
+                        component={Link}
+                        to={`/jobs/edit/${job.id}`}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        fullWidth
+                        onClick={() => handleDelete(job.id)}
+                        sx={{ borderRadius: 2, mt: 1 }}
+                      >
+                        Delete
+                      </Button>
+                    </>
+                  )}
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+    </Container>
+  );
+}
+
+export default JobListings;
+```
+----
+
+### EditJob.js
+```javascript
+// src/components/EditJob.js
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  Box,
+  CircularProgress,
+  Alert,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
+} from '@mui/material';
+import axios from 'axios';
+import { useParams, useNavigate } from 'react-router-dom';
+
+function EditJob() {
+  const { jobId } = useParams();
+  const navigate = useNavigate();
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    status: 'open',
+  });
+
+  useEffect(() => {
+    const fetchJob = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('accessToken');
+        const response = await axios.get(`/api/jobs/${jobId}/`, {
+          headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        setJob(response.data);
+        setFormData({
+          title: response.data.title,
+          description: response.data.description,
+          status: response.data.status || 'open',
+        });
+      } catch (err) {
+        console.error('Error fetching job details', err);
+        setError('Failed to load job details. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJob();
+  }, [jobId]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      await axios.put(`/api/jobs/${jobId}/`, formData, {
+        headers: { Authorization: token ? `Bearer ${token}` : '' },
+      });
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error updating job', err);
+      setError('Failed to update job. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && !job) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 5, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxWidth="md" sx={{ mt: 5, mb: 8 }}>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+        <Typography variant="h4" gutterBottom>
+          Edit Job Posting
+        </Typography>
+
+        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
+        <Box component="form" onSubmit={handleSubmit} noValidate>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="title"
+            label="Job Title"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            sx={{ mb: 3 }}
+          />
+
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="description"
+            label="Job Description"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            multiline
+            rows={6}
+            sx={{ mb: 3 }}
+          />
+
+          <FormControl fullWidth margin="normal" sx={{ mb: 3 }}>
+            <InputLabel id="status-label">Status</InputLabel>
+            <Select
+              labelId="status-label"
+              id="status"
+              name="status"
+              value={formData.status}
+              label="Status"
+              onChange={handleChange}
+            >
+              <MenuItem value="open">Open</MenuItem>
+              <MenuItem value="close">Close</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            color="primary"
+            disabled={loading}
+            sx={{ mt: 3, mb: 2, py: 1.5, borderRadius: 2 }}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Update Job'}
+          </Button>
+        </Box>
+      </Paper>
+    </Container>
+  );
+}
+
+export default EditJob;
+```
+----
+
+### PostJob.js
+```javascript
+// src/components/PostJob.js
+import React, { useState } from 'react';
+import { Container, Typography, TextField, Button, Box } from '@mui/material';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+
+function PostJob() {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  // Default status can be "open"
+  const [status, setStatus] = useState('open');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.post(
+        '/api/jobs/',
+        { title, description, status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert('Job posted successfully!');
+      navigate('/');
+    } catch (error) {
+      console.error('Error posting job', error);
+      alert('Error posting job');
+    }
+  };
+
+  return (
+    <Container sx={{ mt: 4 }}>
+      <Typography variant="h4" gutterBottom>
+        Post a Job
+      </Typography>
+      <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+        <TextField
+          label="Job Title"
+          fullWidth
+          margin="normal"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+        />
+        <TextField
+          label="Job Description"
+          fullWidth
+          multiline
+          rows={4}
+          margin="normal"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+        />
+        <TextField
+          label="Status"
+          fullWidth
+          margin="normal"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        />
+        <Button variant="contained" color="primary" type="submit" fullWidth sx={{ mt: 2 }}>
+          Post Job
+        </Button>
+      </Box>
+    </Container>
+  );
+}
+
+export default PostJob;
+```
+----
+
+### ApplyJob.js
+```javascript
+// src/components/ApplyJob.js
+import React, { useState, useEffect } from 'react';
+import { Container, Typography, Button, Box, TextField, Paper, Card, CardContent, Divider, Grid, CircularProgress, Alert, Stack } from '@mui/material';
+import axios from 'axios';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import WorkIcon from '@mui/icons-material/Work';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import ArticleIcon from '@mui/icons-material/Article';
+
+function ApplyJob() {
+  const { jobId } = useParams();
+  const navigate = useNavigate();
+  const [resume, setResume] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [jobDetails, setJobDetails] = useState(null);
+  const [error, setError] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+
+  // Fetch job details
+  useEffect(() => {
+    async function fetchJobDetails() {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const response = await axios.get(`/api/jobs/${jobId}/`, {
+          headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        setJobDetails(response.data);
+      } catch (error) {
+        console.error('Error fetching job details', error);
+        setError('Could not load job details. Please try again later.');
+      }
+    }
+    fetchJobDetails();
+  }, [jobId]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Check for PDF file type using both MIME type and file extension
+      const isPdf = file.type === 'application/pdf' || 
+                   file.name.toLowerCase().endsWith('.pdf');
+      
+      if (!isPdf) {
+        setError('Please upload a PDF file only');
+        return;
+      }
+      setError('');
+      setResume(file);
+    }
+  };
+  
+  // Handle drag events
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+  
+  // Handle drop event
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      // Check for PDF file type using both MIME type and file extension
+      const isPdf = file.type === 'application/pdf' || 
+                   file.name.toLowerCase().endsWith('.pdf');
+      
+      if (!isPdf) {
+        setError('Please upload a PDF file only');
+        return;
+      }
+      setError('');
+      setResume(file);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!resume) {
+      setError('Please select a resume file.');
+      return;
+    }
+    
+    // Double-check file type before submission
+    const isPdf = resume.type === 'application/pdf' || 
+                 resume.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      setError('Please upload a PDF file only');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    // Log file information for debugging
+    console.log('File information:', {
+      name: resume.name,
+      type: resume.type,
+      size: resume.size
+    });
+    
+    const formData = new FormData();
+    // Ensure job ID is properly formatted for MongoDB ObjectId
+    // The backend expects a valid ObjectId string
+    formData.append('job', jobId);
+    formData.append('resume', resume);
